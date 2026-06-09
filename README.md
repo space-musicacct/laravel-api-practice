@@ -31,7 +31,10 @@ cp backend/.env.example backend/.env
 # 3. コンテナをビルド・起動
 docker compose up -d --build
 
-# 4. Laravel 初期設定 (初回のみ)
+# 4. 依存パッケージをインストール (composer.lock に基づいて再現)
+docker compose exec backend composer install
+
+# 5. Laravel 初期設定 (初回のみ)
 docker compose exec backend chown -R www-data:www-data storage bootstrap/cache
 docker compose exec backend php artisan key:generate
 docker compose exec backend php artisan migrate
