@@ -32,6 +32,7 @@ cp backend/.env.example backend/.env
 docker compose up -d --build
 
 # 4. Laravel 初期設定 (初回のみ)
+docker compose exec backend chown -R www-data:www-data storage bootstrap/cache
 docker compose exec backend php artisan key:generate
 docker compose exec backend php artisan migrate
 ```
