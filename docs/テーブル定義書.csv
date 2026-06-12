@@ -1,0 +1,16 @@
+テーブル名,カラム名,型,NULL許可,デフォルト,キー,備考
+users,id,bigint unsigned,NO,,PK,AUTO_INCREMENT
+users,name,varchar(255),NO,,,ユーザー名
+users,email,varchar(255),NO,,UK,メールアドレス (ログインID)
+users,email_verified_at,timestamp,YES,NULL,,メール認証日時
+users,password,varchar(255),NO,,,ハッシュ化済みパスワード
+users,remember_token,varchar(100),YES,NULL,,ログイン保持トークン
+users,created_at,timestamp,YES,NULL,,作成日時
+users,updated_at,timestamp,YES,NULL,,更新日時
+memos,id,bigint unsigned,NO,,PK,AUTO_INCREMENT
+memos,user_id,bigint unsigned,NO,,FK → users.id,所有ユーザー (CASCADE DELETE)
+memos,title,varchar(255),NO,,,メモのタイトル
+memos,body,text,NO,,,メモの本文
+memos,created_at,timestamp,YES,NULL,,作成日時
+memos,updated_at,timestamp,YES,NULL,,更新日時
+memos,deleted_at,timestamp,YES,NULL,,論理削除日時 (SoftDeletes)

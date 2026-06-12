@@ -9,6 +9,8 @@ services:
     depends_on:
       backend:
         condition: service_started
+      frontend:
+        condition: service_started
     networks:
       - app-net
     restart: unless-stopped
@@ -22,6 +24,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-net
     restart: unless-stopped

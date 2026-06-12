@@ -20,7 +20,10 @@ class RouteServiceProvider extends ServiceProvider
     public const HOME = '/home';
 
     /**
-     * Define your route model bindings, pattern filters, and other route configuration.
+     * ルート定義とレートリミッターの設定
+     *
+     * API ルートはバージョンごとにファイルを分離し、個別のプレフィックスで読み込む。
+     * 将来 v2 を追加する場合は routes/api_v2.php を作成し、ここに登録する。
      */
     public function boot(): void
     {
@@ -30,8 +33,13 @@ class RouteServiceProvider extends ServiceProvider
 
         $this->routes(function () {
             Route::middleware('api')
-                ->prefix('api')
-                ->group(base_path('routes/api.php'));
+                ->prefix('api/v1')
+                ->group(base_path('routes/api_v1.php'));
+
+            // 将来のバージョン追加例:
+            // Route::middleware('api')
+            //     ->prefix('api/v2')
+            //     ->group(base_path('routes/api_v2.php'));
 
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
