@@ -360,6 +360,15 @@ public function register(RegisterRequest $request): JsonResponse
 `login()` と同じく `session()->regenerate()` でセッション固定攻撃を防ぎます。
 Blade 方式の `return redirect()->route('home')` の代わりに API Resource 経由でレスポンスを返します。
 
+`Hash::make()` は `config/hashing.php` で設定されたアルゴリズムでパスワードをハッシュします。
+このプロジェクトでは **Argon2id** (`memory: 65536KB, time: 4, threads: 1`) を採用しています。
+bcrypt も現在広く使われる安全な選択肢ですが (Laravel のデフォルトは bcrypt)、
+Argon2id はメモリコストを設定できるため、GPU/ASIC による総当たり攻撃への耐性を高めやすいアルゴリズムです。
+OWASP (Open Worldwide Application Security Project) のパスワード保存ガイドラインでも
+Argon2id が第一推奨として挙げられています。
+なお、User モデルの `'password' => 'hashed'` キャストにより、`Hash::make()` を経由せず
+代入した場合でも自動でハッシュされる二重安全構造になっています。
+
 `UserResource` はスネークケースのカラム名 (`email_verified_at`) をキャメルケース (`emailVerifiedAt`) に
 変換して返します。フロントエンド (JavaScript/TypeScript) の命名規則に合わせるためです。
 
@@ -368,22 +377,48 @@ Blade 方式の `return redirect()->route('home')` の代わりに API Resource 
 ```php
 public function login(LoginRequest $request): UserResource | JsonResponse
 {
+    $request->ensureIsNotRateLimited();
+
     if (!Auth::attempt($request->validated())) {
+        $request->hitRateLimit();
+
         return response()->json(['message' => 'メールアドレスまたはパスワードが正しくありません。'], 401);
     }
 
+    $request->clearRateLimit();
     $request->session()->regenerate();
 
     return new UserResource(Auth::user());
 }
 ```
 
+- **`ensureIsNotRateLimited()`**: ログイン試行回数のロックアウト制御。IP 単位で 5 回失敗すると 1 時間ロック。
+  ロックアウト中は `429 Too Many Requests` + 残り時間を含む日本語メッセージを返す。
+- **`hitRateLimit()`**: ログイン失敗時に試行回数を加算する。タイマーは初回失敗時に開始し、試行ごとには延長されない。
+- **`clearRateLimit()`**: ログイン成功時にカウントをリセットする。
 - **`Auth::attempt($credentials)`**: Blade の `LoginController` と全く同じメソッドです。
   セッションにユーザー情報を保存し、認証 Cookie を発行します。
 - **`$request->session()->regenerate()`**: セッション固定攻撃を防ぐためにセッション ID を再生成します。
   Blade 方式でも同じことをしていますが、通常は `Auth::routes()` の裏で自動的に行われているので意識しないだけです。
 - 失敗時は **`401` ステータスコード** で JSON を返します (Blade なら `redirect()->back()` でフォームに戻す)。
 - 成功時は `UserResource` を返します。Laravel が自動で `{ "data": { ... } }` 形式のキャメルケース JSON に変換します。
+
+#### ロックアウトの解除方法
+
+開発中にロックアウトされた場合は、Laravel のキャッシュをクリアすることで解除できます:
+
+```bash
+docker compose exec backend php artisan cache:clear
+```
+
+※ これは `RateLimiter` がキャッシュドライバ (デフォルト: file) を使っているためです。
+本番環境ではキャッシュ全体がクリアされるため、特定 IP のみ解除したい場合は
+`RateLimiter::clear('login|{IP}')` を tinker で実行してください:
+
+```bash
+docker compose exec backend php artisan tinker
+>>> \Illuminate\Support\Facades\RateLimiter::clear('login|172.20.0.1');
+```
 
 #### ログアウト (`logout`)
 

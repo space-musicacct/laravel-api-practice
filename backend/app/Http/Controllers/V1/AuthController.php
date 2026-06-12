@@ -45,14 +45,19 @@ class AuthController extends Controller
      * ログイン
      *
      * メールアドレスとパスワードで認証し、セッションを開始する。
-     * セッション固定攻撃対策としてセッション ID を再生成する。
+     * IP 単位のロックアウト制御 (5回失敗で1時間ロック) を含む。
      */
     public function login(LoginRequest $request): UserResource | JsonResponse
     {
+        $request->ensureIsNotRateLimited();
+
         if (!Auth::attempt($request->validated())) {
+            $request->hitRateLimit();
+
             return response()->json(['message' => 'メールアドレスまたはパスワードが正しくありません。'], 401);
         }
 
+        $request->clearRateLimit();
         $request->session()->regenerate();
 
         return new UserResource(Auth::user());
